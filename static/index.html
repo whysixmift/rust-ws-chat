@@ -3,66 +3,249 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Rust Realtime Chat</title>
+    <title>Terminal Chat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
     <style>
       :root {
         color-scheme: dark;
+        --bg: #000000;
+        --panel: #0b0b0b;
+        --bubble: #121212;
+        --border: #333333;
+        --text: #e0e0e0;
+        --muted: #8f8f8f;
       }
-      body {
+      * {
+        box-sizing: border-box;
+      }
+      html, body {
+        height: 100%;
         margin: 0;
-        font-family: system-ui, sans-serif;
-        background: #0f172a;
-        color: #e2e8f0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Inter, sans-serif;
       }
-      .app {
-        max-width: 760px;
-        margin: 0 auto;
-        padding: 20px;
+      .shell {
+        display: grid;
+        grid-template-columns: 260px 1fr;
+        height: 100vh;
+      }
+      .sidebar {
+        border-right: 1px solid var(--border);
+        background: rgba(13, 13, 13, 0.8);
+        backdrop-filter: blur(10px);
+        padding: 20px 14px;
+      }
+      .brand {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 14px;
+        margin-bottom: 16px;
+        color: #fff;
+      }
+      .room {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+        background: #080808;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #e0e0e0;
+        animation: pulse 1.4s infinite;
+      }
+      .main {
+        position: relative;
+        padding: 24px 28px 100px;
       }
       #messages {
-        height: 60vh;
+        height: calc(100vh - 160px);
         overflow-y: auto;
-        border: 1px solid #334155;
-        border-radius: 8px;
-        padding: 12px;
-        background: #111827;
+        scroll-behavior: smooth;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding-right: 4px;
+      }
+      #messages::-webkit-scrollbar {
+        width: 8px;
+      }
+      #messages::-webkit-scrollbar-thumb {
+        background: #333;
+        border-radius: 10px;
       }
       .msg {
-        margin-bottom: 8px;
-        word-wrap: break-word;
+        max-width: 70%;
+        border: 1px solid #222;
+        border-radius: 12px;
+        background: var(--bubble);
+        padding: 10px 12px;
+        font-family: "JetBrains Mono", monospace;
+        animation: msgIn 0.3s ease forwards;
+      }
+      .msg.self {
+        margin-left: auto;
+        border-color: #3f3f3f;
+      }
+      .meta {
+        color: var(--muted);
+        font-size: 12px;
+        margin-bottom: 6px;
+      }
+      .receipt {
+        margin-top: 8px;
+        height: 1px;
+        width: 26px;
+        background: #e0e0e0;
+        opacity: 0.6;
+      }
+      .receipt.read {
+        background: #7a7a7a;
+      }
+      .typing {
+        display: none;
+        align-items: center;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 6px;
+      }
+      .dots {
+        display: inline-flex;
+        gap: 4px;
+      }
+      .dots span {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: #c4c4c4;
+        animation: bounce 1s infinite;
+      }
+      .dots span:nth-child(2) { animation-delay: 0.16s; }
+      .dots span:nth-child(3) { animation-delay: 0.32s; }
+      .input-wrap {
+        position: absolute;
+        left: 28px;
+        right: 28px;
+        bottom: 22px;
       }
       form {
-        margin-top: 12px;
-        display: flex;
-        gap: 8px;
+        display: grid;
+        grid-template-columns: 170px 1fr 92px;
+        gap: 10px;
+        padding: 10px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: rgba(18, 18, 18, 0.8);
+        backdrop-filter: blur(10px);
       }
       input, button {
-        border: 1px solid #475569;
+        border: 1px solid #2b2b2b;
         border-radius: 8px;
-        background: #1e293b;
-        color: #e2e8f0;
-        padding: 10px;
+        background: #0d0d0d;
+        color: var(--text);
+        padding: 10px 12px;
+        font-family: Inter, sans-serif;
+        transition: border-color 0.25s ease, box-shadow 0.25s ease;
       }
-      #sender { width: 130px; }
-      #text { flex: 1; }
-      button { cursor: pointer; }
+      input:focus {
+        outline: none;
+        border-color: #7f7f7f;
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08);
+      }
+      button {
+        cursor: pointer;
+        font-weight: 600;
+      }
+      button:hover {
+        border-color: #5a5a5a;
+      }
       #status {
-        margin-bottom: 10px;
-        font-size: 14px;
-        color: #93c5fd;
+        margin-bottom: 16px;
+        font-size: 12px;
+        color: var(--muted);
+        font-family: "JetBrains Mono", monospace;
+      }
+      .palette {
+        position: fixed;
+        inset: 0;
+        display: none;
+        place-items: center;
+        background: rgba(0, 0, 0, 0.45);
+      }
+      .palette-box {
+        width: min(560px, 92vw);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px;
+        background: #0f0f0f;
+      }
+      .palette-box input {
+        width: 100%;
+      }
+      @keyframes msgIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes bounce {
+        0%, 80%, 100% { transform: translateY(0); opacity: 0.35; }
+        40% { transform: translateY(-4px); opacity: 1; }
+      }
+      @keyframes pulse {
+        0% { opacity: 0.4; }
+        50% { opacity: 1; }
+        100% { opacity: 0.4; }
+      }
+      @media (max-width: 920px) {
+        .shell { grid-template-columns: 1fr; }
+        .sidebar { display: none; }
+        .main { padding: 16px 14px 96px; }
+        .input-wrap { left: 14px; right: 14px; }
+        form { grid-template-columns: 1fr; }
+        .msg { max-width: 90%; }
       }
     </style>
   </head>
   <body>
-    <main class="app">
-      <div id="status">Connecting...</div>
-      <section id="messages" aria-live="polite"></section>
-      <form id="chatForm">
-        <input id="sender" maxlength="32" placeholder="Nama" required />
-        <input id="text" maxlength="500" placeholder="Ketik pesan..." required />
-        <button type="submit">Kirim</button>
-      </form>
-    </main>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">terminal.chat</div>
+        <div class="room"><span class="dot"></span># general</div>
+        <div class="room"><span class="dot"></span># backend</div>
+        <div class="room"><span class="dot"></span># deploy</div>
+      </aside>
+      <main class="main">
+        <div id="status">Connecting...</div>
+        <section id="messages" aria-live="polite"></section>
+        <div id="typing" class="typing">
+          <span>someone is typing</span>
+          <span class="dots"><span></span><span></span><span></span></span>
+        </div>
+        <div class="input-wrap">
+          <form id="chatForm">
+            <input id="sender" maxlength="32" placeholder="username" required />
+            <input id="text" maxlength="500" placeholder="message" required />
+            <button type="submit">Send</button>
+          </form>
+        </div>
+      </main>
+    </div>
+
+    <div id="palette" class="palette">
+      <div class="palette-box">
+        <input placeholder="Search room or settings..." />
+      </div>
+    </div>
 
     <script>
       const statusEl = document.getElementById("status");
@@ -70,6 +253,9 @@
       const formEl = document.getElementById("chatForm");
       const senderEl = document.getElementById("sender");
       const textEl = document.getElementById("text");
+      const typingEl = document.getElementById("typing");
+      const paletteEl = document.getElementById("palette");
+      const paletteInput = paletteEl.querySelector("input");
 
       const protocol = location.protocol === "https:" ? "wss" : "ws";
       const socket = new WebSocket(`${protocol}://${location.host}/ws`);
@@ -86,7 +272,7 @@
         try {
           const data = JSON.parse(event.data);
           if (data.type !== "message") return;
-          renderMessage(data.sender, data.text);
+          renderMessage(data.sender, data.text, false);
         } catch (_) {}
       });
 
@@ -105,22 +291,48 @@
         };
 
         socket.send(JSON.stringify(payload));
-        renderMessage(sender, text + " (you)");
+        renderMessage(sender, text, true);
         textEl.value = "";
         textEl.focus();
+      });
+
+      textEl.addEventListener("input", () => {
+        typingEl.style.display = textEl.value.trim() ? "flex" : "none";
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+          event.preventDefault();
+          paletteEl.style.display = "grid";
+          paletteInput.focus();
+        }
+        if (event.key === "Escape") {
+          paletteEl.style.display = "none";
+        }
       });
 
       function sanitize(value, max) {
         return value.trim().slice(0, max);
       }
 
-      function renderMessage(sender, text) {
+      function renderMessage(sender, text, self) {
         const row = document.createElement("div");
-        row.className = "msg";
-        row.textContent = `[${sender}] ${text}`;
+        row.className = `msg${self ? " self" : ""}`;
+
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.textContent = `@${sender}`;
+
+        const body = document.createElement("div");
+        body.textContent = text;
+
+        const receipt = document.createElement("div");
+        receipt.className = `receipt${self ? "" : " read"}`;
+
+        row.append(meta, body, receipt);
         messagesEl.appendChild(row);
-        messagesEl.scrollTop = messagesEl.scrollHeight;
+        row.scrollIntoView({ behavior: "smooth", block: "end" });
       }
     </script>
   </body>
-  </html>
+</html>
