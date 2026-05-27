@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rust Realtime Chat</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+        font-family: system-ui, sans-serif;
+        background: #0f172a;
+        color: #e2e8f0;
+      }
+      .app {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      #messages {
+        height: 60vh;
+        overflow-y: auto;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 12px;
+        background: #111827;
+      }
+      .msg {
+        margin-bottom: 8px;
+        word-wrap: break-word;
+      }
+      form {
+        margin-top: 12px;
+        display: flex;
+        gap: 8px;
+      }
+      input, button {
+        border: 1px solid #475569;
+        border-radius: 8px;
+        background: #1e293b;
+        color: #e2e8f0;
+        padding: 10px;
+      }
+      #sender { width: 130px; }
+      #text { flex: 1; }
+      button { cursor: pointer; }
+      #status {
+        margin-bottom: 10px;
+        font-size: 14px;
+        color: #93c5fd;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <div id="status">Connecting...</div>
+      <section id="messages" aria-live="polite"></section>
+      <form id="chatForm">
+        <input id="sender" maxlength="32" placeholder="Nama" required />
+        <input id="text" maxlength="500" placeholder="Ketik pesan..." required />
+        <button type="submit">Kirim</button>
+      </form>
+    </main>
+
+    <script>
+      const statusEl = document.getElementById("status");
+      const messagesEl = document.getElementById("messages");
+      const formEl = document.getElementById("chatForm");
+      const senderEl = document.getElementById("sender");
+      const textEl = document.getElementById("text");
+
+      const protocol = location.protocol === "https:" ? "wss" : "ws";
+      const socket = new WebSocket(`${protocol}://${location.host}/ws`);
+
+      socket.addEventListener("open", () => {
+        statusEl.textContent = "Connected";
+      });
+
+      socket.addEventListener("close", () => {
+        statusEl.textContent = "Disconnected";
+      });
+
+      socket.addEventListener("message", (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type !== "message") return;
+          renderMessage(data.sender, data.text);
+        } catch (_) {}
+      });
+
+      formEl.addEventListener("submit", (event) => {
+        event.preventDefault();
+        if (socket.readyState !== WebSocket.OPEN) return;
+
+        const sender = sanitize(senderEl.value, 32);
+        const text = sanitize(textEl.value, 500);
+        if (!sender || !text) return;
+
+        const payload = {
+          type: "message",
+          sender,
+          text
+        };
+
+        socket.send(JSON.stringify(payload));
+        renderMessage(sender, text + " (you)");
+        textEl.value = "";
+        textEl.focus();
+      });
+
+      function sanitize(value, max) {
+        return value.trim().slice(0, max);
+      }
+
+      function renderMessage(sender, text) {
+        const row = document.createElement("div");
+        row.className = "msg";
+        row.textContent = `[${sender}] ${text}`;
+        messagesEl.appendChild(row);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+    </script>
+  </body>
+  </html>
